@@ -14,7 +14,7 @@ module.exports = {
     {
       name: 'feedback-api',
       script: path.join(venvPath, 'bin/uvicorn'),
-      args: 'backend.app.main:app --host 0.0.0.0 --port 20525',
+      args: 'backend.app.main:app --host 0.0.0.0 --port 20530',
       interpreter: 'none',
       cwd: __dirname,
       instances: 1,
