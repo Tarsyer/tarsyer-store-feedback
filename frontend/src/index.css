@@ -1,8 +1,8 @@
 /* Store Feedback PWA - Mobile-First Styles */
 
 :root {
-  --primary: #1a73e8;
-  --primary-dark: #1557b0;
+  --primary: #EF4444;
+  --primary-dark: #DC2626;
   --success: #34a853;
   --warning: #fbbc04;
   --danger: #ea4335;
@@ -37,7 +37,7 @@ body {
   align-items: center;
   justify-content: center;
   padding: 20px;
-  background: linear-gradient(135deg, #1a73e8 0%, #4285f4 100%);
+  background: linear-gradient(135deg, #EF4444 0%, #F87171 100%);
 }
 
 .login-card {

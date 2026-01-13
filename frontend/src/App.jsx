@@ -169,7 +169,7 @@ function App() {
       <div className="login-container">
         <div className="login-card">
           <div className="logo">
-            <img src="/tarsyer-logo.png" alt="Tarsyer" onError={(e) => e.target.style.display = 'none'} />
+            <img src="/logo.svg" alt="Tarsyer Store Feedback" style={{ height: '80px', marginBottom: '16px' }} />
             <h1>Store Feedback</h1>
           </div>
           <p className="subtitle">Select your store to continue</p>

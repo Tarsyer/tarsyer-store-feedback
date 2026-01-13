@@ -35,6 +35,7 @@ A complete solution for collecting, transcribing, and analyzing retail store sta
 - **Audio recording** - Direct recording from device microphone
 - **File upload** - Upload existing audio/video files
 - **History view** - See past submissions and their status
+- **Red branding** - Uses Tarsyer owl logo with red color scheme
 
 ### Backend API
 - **FastAPI** - High-performance async Python framework
@@ -52,13 +53,16 @@ A complete solution for collecting, transcribing, and analyzing retail store sta
    - Issues reported
    - Suggested actions
 
-### Manager Dashboard
-- **Daily trends** - Submission counts over time
-- **Store breakdown** - Feedbacks per store
-- **Tone distribution** - Sentiment analysis chart
-- **Top 5 insights** - Products, issues, actions
-- **Detailed view** - Full transcription, audio playback
-- **CSV export** - Download data for further analysis
+### Analytics & Reports Dashboard
+- **Comprehensive analytics** - Separate dedicated reports page at `/reports.html`
+- **Daily trends** - Visual submission counts over time with bar charts
+- **Store breakdown** - Feedbacks per store with comparison
+- **Sentiment analysis** - Tone distribution (positive/negative/neutral) with visual charts
+- **Top insights** - Top 10 products, issues, and action items discussed
+- **Detailed view** - Full transcription, audio playback, and AI analysis
+- **CSV export** - Download complete data for further analysis
+- **Filtering** - Filter by store and date range (7/15/30/60 days)
+- **Feedback table** - View all analyzed feedbacks in searchable table format
 
 ## Quick Start
 
@@ -77,9 +81,9 @@ docker-compose up -d
 docker-compose logs -f
 
 # Access
-# PWA: http://localhost:3000
+# Store Staff PWA: http://localhost:3000
 # API: http://localhost:8000
-# Dashboard: http://localhost:3000/dashboard
+# Analytics Dashboard: http://localhost:3000/reports.html
 ```
 
 ### Manual Setup
@@ -352,6 +356,11 @@ sudo systemctl reload nginx
 pm2 status
 pm2 logs
 ```
+
+7. **Access the application:**
+- Store Staff PWA: `https://store-feedback.tarsyer.com/`
+- Analytics & Reports: `https://store-feedback.tarsyer.com/reports.html`
+- API Docs: `https://store-feedback.tarsyer.com/docs`
 
 ### Manual Deployment Steps
 

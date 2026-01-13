@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" width="800" height="800">
+  <!-- Tarsyer Owl Logo in Red -->
+  <g transform="translate(400, 400)">
+    <!-- Head/Face -->
+    <path d="M -150,-100 Q -200,-200 -120,-280 Q -50,-320 0,-320 Q 50,-320 120,-280 Q 200,-200 150,-100 L 150,100 Q 150,180 100,220 Q 50,250 0,250 Q -50,250 -100,220 Q -150,180 -150,100 Z" fill="#EF4444"/>
+
+    <!-- Ears -->
+    <ellipse cx="-140" cy="-180" rx="60" ry="90" fill="#EF4444"/>
+    <ellipse cx="140" cy="-180" rx="60" ry="90" fill="#EF4444"/>
+
+    <!-- Eyes background (white) -->
+    <ellipse cx="-80" cy="-50" rx="80" ry="85" fill="white"/>
+    <ellipse cx="80" cy="-50" rx="80" ry="85" fill="white"/>
+
+    <!-- Eye rings (red) -->
+    <circle cx="-80" cy="-50" r="65" fill="none" stroke="#EF4444" stroke-width="12"/>
+    <circle cx="80" cy="-50" r="65" fill="none" stroke="#EF4444" stroke-width="12"/>
+
+    <!-- Inner eye rings (red) -->
+    <circle cx="-80" cy="-50" r="45" fill="none" stroke="#EF4444" stroke-width="10"/>
+    <circle cx="80" cy="-50" r="45" fill="none" stroke="#EF4444" stroke-width="10"/>
+
+    <!-- Pupils -->
+    <circle cx="-80" cy="-50" r="20" fill="#EF4444"/>
+    <circle cx="80" cy="-50" r="20" fill="#EF4444"/>
+
+    <!-- Infinity symbol connecting eyes -->
+    <path d="M -30,-50 Q -50,-30 -80,-30 Q -110,-30 -130,-50 Q -110,-70 -80,-70 Q -50,-70 -30,-50 M 30,-50 Q 50,-30 80,-30 Q 110,-30 130,-50 Q 110,-70 80,-70 Q 50,-70 30,-50"
+          fill="none" stroke="#EF4444" stroke-width="14" stroke-linecap="round"/>
+
+    <!-- Beak/Nose -->
+    <path d="M -40,30 L 0,80 L 40,30 L 0,50 Z" fill="#EF4444"/>
+
+    <!-- Body (white) -->
+    <ellipse cx="0" cy="150" rx="120" ry="100" fill="white"/>
+
+    <!-- Body sides (red) -->
+    <path d="M -120,100 Q -180,120 -180,200 Q -180,280 -120,300 L -120,100" fill="#EF4444"/>
+    <path d="M 120,100 Q 180,120 180,200 Q 180,280 120,300 L 120,100" fill="#EF4444"/>
+  </g>
+</svg>
