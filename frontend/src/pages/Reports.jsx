@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import Auth from '../components/Auth';
 import './Reports.css';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'https://store-feedback.tarsyer.com';
@@ -100,6 +101,7 @@ const TrendChart = ({ data }) => {
 };
 
 function Reports() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [stats, setStats] = useState(null);
   const [stores, setStores] = useState([]);
   const [feedbacks, setFeedbacks] = useState([]);
@@ -108,9 +110,19 @@ function Reports() {
   const [days, setDays] = useState(15);
   const [detailView, setDetailView] = useState(null);
 
+  // Check stored authentication
   useEffect(() => {
-    fetchData();
-  }, [selectedStore, days]);
+    const managerAuth = localStorage.getItem('manager_auth');
+    if (managerAuth === 'true') {
+      setIsAuthenticated(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchData();
+    }
+  }, [selectedStore, days, isAuthenticated]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -170,6 +182,11 @@ function Reports() {
     a.click();
   };
 
+  // Authentication Screen
+  if (!isAuthenticated) {
+    return <Auth onLogin={setIsAuthenticated} userType="manager" />;
+  }
+
   if (loading && !stats) {
     return (
       <div className="loading-container">
@@ -184,8 +201,8 @@ function Reports() {
       {/* Header */}
       <header className="reports-header">
         <div className="reports-title">
-          <img src="/logo.svg" alt="Logo" className="reports-logo" />
-          <h1>Analytics & Reports</h1>
+          <img src="/Tarsyer_Logo.png" alt="Tarsyer Store Sentiment" className="reports-logo" />
+          <h1>Tarsyer Store Sentiment - Analytics</h1>
         </div>
         <div className="header-controls">
           <select

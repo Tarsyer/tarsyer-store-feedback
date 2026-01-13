@@ -21,7 +21,8 @@ QWEN_API_URL = os.getenv("QWEN_API_URL", "https://kwen.tarsyer.com/v1/chat/compl
 QWEN_API_KEY = os.getenv("QWEN_API_KEY", "Tarsyer-key-1")
 QWEN_TARGET_SERVER = os.getenv("QWEN_TARGET_SERVER", "BK")
 POLL_INTERVAL = int(os.getenv("POLL_INTERVAL", "10"))
-MAX_TOKENS = int(os.getenv("MAX_TOKENS", "1024"))
+MAX_TOKENS = int(os.getenv("MAX_TOKENS", "2048"))
+LOG_QWEN_RESPONSES = os.getenv("LOG_QWEN_RESPONSES", "true").lower() == "true"
 
 
 def log(message: str, level: str = "INFO"):
@@ -30,7 +31,8 @@ def log(message: str, level: str = "INFO"):
     print(f"[{timestamp}] [{level}] {message}", flush=True)
 
 
-ANALYSIS_SYSTEM_PROMPT = """You are an expert retail analyst. Analyze store staff feedback and extract structured insights.
+# Get prompts from environment variables (configurable)
+DEFAULT_SYSTEM_PROMPT = """You are an expert retail analyst. Analyze store staff feedback and extract structured insights.
 
 Your response MUST be valid JSON with exactly this structure:
 {
@@ -55,14 +57,17 @@ Guidelines:
 If a category has no items, use an empty array [].
 Always respond with valid JSON only, no additional text."""
 
-
-ANALYSIS_USER_PROMPT = """Analyze this store staff feedback transcription and extract structured insights:
+DEFAULT_USER_PROMPT = """Analyze this store staff feedback transcription and extract structured insights:
 
 ---
 {transcription}
 ---
 
 Remember to respond with valid JSON only."""
+
+# Load prompts from environment or use defaults
+ANALYSIS_SYSTEM_PROMPT = os.getenv("QWEN_SYSTEM_PROMPT", DEFAULT_SYSTEM_PROMPT)
+ANALYSIS_USER_PROMPT = os.getenv("QWEN_USER_PROMPT", DEFAULT_USER_PROMPT)
 
 
 def analyze_with_qwen(transcription: str) -> tuple[bool, dict]:
@@ -106,13 +111,21 @@ def analyze_with_qwen(transcription: str) -> tuple[bool, dict]:
             return False, {"error": f"Qwen API error: {response.status_code} - {response.text}"}
         
         result = response.json()
-        
+
+        # Log full Qwen response if enabled
+        if LOG_QWEN_RESPONSES:
+            log(f"Qwen API Response: {json.dumps(result, indent=2)}", "DEBUG")
+
         # Extract content from response
         content = result.get("choices", [{}])[0].get("message", {}).get("content", "")
-        
+
         if not content:
             return False, {"error": "Empty response from Qwen API"}
-        
+
+        # Log extracted content
+        if LOG_QWEN_RESPONSES:
+            log(f"Extracted content: {content}", "DEBUG")
+
         # Parse JSON from response
         # Handle potential markdown code blocks
         if "```json" in content:

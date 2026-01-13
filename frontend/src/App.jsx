@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import Auth from './components/Auth';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'https://store-feedback.tarsyer.com';
 
@@ -13,6 +14,7 @@ const STORES = [
 ];
 
 function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [store, setStore] = useState(null);
   const [view, setView] = useState('record'); // record, history
@@ -28,8 +30,13 @@ function App() {
   const chunksRef = useRef([]);
   const fileInputRef = useRef(null);
 
-  // Check stored login
+  // Check stored authentication and login
   useEffect(() => {
+    const staffAuth = localStorage.getItem('staff_auth');
+    if (staffAuth === 'true') {
+      setIsAuthenticated(true);
+    }
+
     const savedStore = localStorage.getItem('store');
     if (savedStore) {
       setStore(JSON.parse(savedStore));
@@ -54,7 +61,9 @@ function App() {
   const handleLogout = () => {
     setStore(null);
     localStorage.removeItem('store');
+    localStorage.removeItem('staff_auth');
     setIsLoggedIn(false);
+    setIsAuthenticated(false);
   };
 
   const startRecording = async () => {
@@ -163,14 +172,19 @@ function App() {
     }
   };
 
-  // Login Screen
+  // Authentication Screen
+  if (!isAuthenticated) {
+    return <Auth onLogin={setIsAuthenticated} userType="staff" />;
+  }
+
+  // Login Screen (Store Selection)
   if (!isLoggedIn) {
     return (
       <div className="login-container">
         <div className="login-card">
           <div className="logo">
-            <img src="/logo.svg" alt="Tarsyer Store Feedback" style={{ height: '80px', marginBottom: '16px' }} />
-            <h1>Store Feedback</h1>
+            <img src="/Tarsyer_Logo.png" alt="Tarsyer Store Sentiment" style={{ height: '80px', marginBottom: '16px' }} />
+            <h1>Tarsyer Store Sentiment</h1>
           </div>
           <p className="subtitle">Select your store to continue</p>
           
@@ -211,7 +225,6 @@ function App() {
       <header className="app-header">
         <div className="store-info">
           <span className="store-code">{store.code}</span>
-          <span className="store-name">{store.name}</span>
         </div>
         <button className="logout-btn" onClick={handleLogout}>Logout</button>
       </header>
@@ -343,7 +356,7 @@ function App() {
                     {fb.transcription && (
                       <div className="transcription">
                         <strong>Transcription:</strong>
-                        <p>{fb.transcription.slice(0, 200)}...</p>
+                        <p>{fb.transcription}</p>
                       </div>
                     )}
                     

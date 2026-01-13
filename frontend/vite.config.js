@@ -25,6 +25,8 @@ export default defineConfig({
     }
   },
   define: {
-    'import.meta.env.VITE_API_URL': JSON.stringify(process.env.VITE_API_URL || 'https://store-feedback.tarsyer.com')
+    'import.meta.env.VITE_API_URL': JSON.stringify(process.env.VITE_API_URL || 'https://store-feedback.tarsyer.com'),
+    'import.meta.env.VITE_STAFF_PASSWORD': JSON.stringify(process.env.VITE_STAFF_PASSWORD || 'staff123'),
+    'import.meta.env.VITE_MANAGER_PASSWORD': JSON.stringify(process.env.VITE_MANAGER_PASSWORD || 'manager123')
   }
 });
