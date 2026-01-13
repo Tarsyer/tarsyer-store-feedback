@@ -84,23 +84,111 @@ docker-compose logs -f
 
 ### Manual Setup
 
-#### 1. Start MongoDB
+#### 1. Install MongoDB
+
+**macOS:**
 ```bash
-mongod --dbpath /data/db
+# Using Homebrew
+brew tap mongodb/brew
+brew install mongodb-community@7.0
+
+# Start MongoDB as a service
+brew services start mongodb-community@7.0
+
+# Or start manually
+mongod --config /opt/homebrew/etc/mongod.conf
 ```
 
-#### 2. Setup Backend
+**Ubuntu/Debian:**
+```bash
+# Import MongoDB public GPG key
+curl -fsSL https://www.mongodb.org/static/pgp/server-7.0.asc | \
+  sudo gpg -o /usr/share/keyrings/mongodb-server-7.0.gpg --dearmor
+
+# Add MongoDB repository
+echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multiverse" | \
+  sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
+
+# Update package database
+sudo apt-get update
+
+# Install MongoDB
+sudo apt-get install -y mongodb-org
+
+# Start MongoDB
+sudo systemctl start mongod
+sudo systemctl enable mongod
+```
+
+**Windows:**
+```bash
+# Download from https://www.mongodb.com/try/download/community
+# Run the installer and follow the wizard
+# MongoDB will start as a Windows service automatically
+
+# Or using Chocolatey
+choco install mongodb
+
+# Start MongoDB service
+net start MongoDB
+```
+
+**Using Docker (Alternative):**
+```bash
+docker run -d -p 27017:27017 --name mongodb \
+  -v mongodb_data:/data/db \
+  mongo:7.0
+```
+
+#### 2. Verify MongoDB Installation
+```bash
+# Check if MongoDB is running
+mongosh --eval "db.runCommand({ connectionStatus: 1 })"
+
+# Or connect to MongoDB shell
+mongosh
+```
+
+#### 3. Setup Backend
 ```bash
 cd backend
 python -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 
+# Create uploads directory
+mkdir -p ../uploads
+
+# Create .env file
+cat > ../.env << 'EOF'
+# MongoDB
+MONGO_URI=mongodb://localhost:27017
+DB_NAME=store_feedback
+
+# File Storage
+UPLOAD_DIR=./uploads
+BASE_URL=http://localhost:8000
+
+# Whisper.cpp (Transcription)
+WHISPER_CLI=/path/to/whisper.cpp/build/bin/whisper-cli
+WHISPER_MODEL=/path/to/ggml-medium.bin
+WHISPER_LANG=hi
+
+# Qwen3 API (AI Analysis)
+QWEN_API_URL=https://kwen.tarsyer.com/v1/chat/completions
+QWEN_API_KEY=Tarsyer-key-1
+QWEN_TARGET_SERVER=BK
+MAX_TOKENS=1024
+
+# Worker Settings
+POLL_INTERVAL=10
+EOF
+
 # Start API
 uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
-#### 3. Setup whisper.cpp
+#### 4. Setup whisper.cpp
 ```bash
 git clone https://github.com/ggerganov/whisper.cpp.git
 cd whisper.cpp
@@ -110,7 +198,7 @@ cmake -B build && cmake --build build
 ./models/download-ggml-model.sh medium
 ```
 
-#### 4. Start Workers
+#### 5. Start Workers
 ```bash
 # Transcription worker
 export WHISPER_CLI=/path/to/whisper-cli
@@ -121,7 +209,7 @@ python services/transcription_worker.py
 python services/analysis_worker.py
 ```
 
-#### 5. Start Frontend
+#### 6. Start Frontend
 ```bash
 cd frontend
 npm install
@@ -172,8 +260,8 @@ curl "https://store-feedback.tarsyer.com/api/v1/feedbacks?store_code=W001&limit=
 |----------|-------------|---------|
 | `MONGO_URI` | MongoDB connection string | `mongodb://localhost:27017` |
 | `DB_NAME` | Database name | `store_feedback` |
-| `UPLOAD_DIR` | Media file storage path | `/data/uploads` |
-| `BASE_URL` | Public URL for media links | `https://store-feedback.tarsyer.com` |
+| `UPLOAD_DIR` | Media file storage path | `./uploads` (dev), `/data/uploads` (prod) |
+| `BASE_URL` | Public URL for media links | `http://localhost:8000` (dev), `https://store-feedback.tarsyer.com` (prod) |
 | `WHISPER_CLI` | Path to whisper-cli binary | - |
 | `WHISPER_MODEL` | Path to whisper model file | - |
 | `WHISPER_LANG` | Source language for transcription | `hi` (Hindi) |
