@@ -18,6 +18,7 @@ httpx==0.26.0
 
 # Settings Management
 pydantic-settings==2.1.0
+python-dotenv==1.0.0
 
 # Process Management
 # Note: PM2 is installed separately via npm

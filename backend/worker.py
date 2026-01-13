@@ -16,9 +16,13 @@ from pathlib import Path
 from datetime import datetime
 from typing import Optional, Tuple
 
+from dotenv import load_dotenv
 import httpx
 from motor.motor_asyncio import AsyncIOMotorClient
 from bson import ObjectId
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Configuration from environment
 MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017")

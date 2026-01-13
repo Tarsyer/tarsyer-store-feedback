@@ -8,7 +8,9 @@ import uuid
 from datetime import datetime, timedelta
 from typing import Optional, List
 from contextlib import asynccontextmanager
+from pathlib import Path
 
+from dotenv import load_dotenv
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -16,6 +18,9 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from motor.motor_asyncio import AsyncIOMotorClient
 from bson import ObjectId
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Configuration
 MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017")
