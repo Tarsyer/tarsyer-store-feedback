@@ -184,8 +184,9 @@ MAX_TOKENS=1024
 POLL_INTERVAL=10
 EOF
 
-# Start API
-uvicorn app.main:app --host 0.0.0.0 --port 8000
+# Start API (run from project root, not from backend directory)
+cd ..
+uvicorn backend.app.main:app --host 0.0.0.0 --port 8000
 ```
 
 #### 4. Setup whisper.cpp
@@ -200,13 +201,15 @@ cmake -B build && cmake --build build
 
 #### 5. Start Workers
 ```bash
-# Transcription worker
+# Set whisper paths
 export WHISPER_CLI=/path/to/whisper-cli
 export WHISPER_MODEL=/path/to/ggml-medium.bin
-python services/transcription_worker.py
 
-# Analysis worker (separate terminal)
-python services/analysis_worker.py
+# Transcription worker (from project root)
+python backend/services/transcription_worker.py
+
+# Analysis worker (separate terminal, from project root)
+python backend/services/analysis_worker.py
 ```
 
 #### 6. Start Frontend
