@@ -1,0 +1,41 @@
+{
+  "name": "Store Feedback - Tarsyer",
+  "short_name": "Feedback",
+  "description": "Collect and analyze retail store staff feedback",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8f9fa",
+  "theme_color": "#1a73e8",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshot-1.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow"
+    }
+  ],
+  "categories": ["business", "productivity"],
+  "shortcuts": [
+    {
+      "name": "Record Feedback",
+      "short_name": "Record",
+      "url": "/?view=record",
+      "icons": [{ "src": "/icon-record.png", "sizes": "96x96" }]
+    }
+  ]
+}

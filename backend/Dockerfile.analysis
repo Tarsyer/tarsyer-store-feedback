@@ -1,0 +1,18 @@
+# AI Analysis Worker - Dockerfile
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies
+RUN pip install --no-cache-dir requests
+
+# Copy worker script
+COPY services/analysis_worker.py ./
+
+# Run worker
+CMD ["python", "analysis_worker.py"]

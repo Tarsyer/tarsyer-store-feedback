@@ -1,0 +1,29 @@
+# Store Feedback System - Backend Dependencies
+
+# Web Framework
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+python-multipart==0.0.6
+
+# Database
+motor==3.3.2  # Async MongoDB driver
+pymongo==4.6.1
+
+# Authentication
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+
+# HTTP Client (for Qwen API)
+httpx==0.26.0
+
+# Settings Management
+pydantic-settings==2.1.0
+
+# Process Management
+# Note: PM2 is installed separately via npm
+
+# Audio Processing (system dependency: ffmpeg required)
+# whisper.cpp is installed separately
+
+# Utilities
+python-dateutil==2.8.2

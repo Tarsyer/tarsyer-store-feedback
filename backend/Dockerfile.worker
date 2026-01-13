@@ -1,0 +1,41 @@
+# Transcription Worker - Dockerfile with whisper.cpp
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system dependencies including build tools for whisper.cpp
+RUN apt-get update && apt-get install -y \
+    ffmpeg \
+    curl \
+    git \
+    cmake \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Build whisper.cpp
+RUN git clone https://github.com/ggerganov/whisper.cpp.git /opt/whisper.cpp \
+    && cd /opt/whisper.cpp \
+    && cmake -B build \
+    && cmake --build build --config Release
+
+# Download default model (medium)
+RUN mkdir -p /opt/whisper.cpp/models \
+    && curl -L -o /opt/whisper.cpp/models/ggml-medium.bin \
+    https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.bin
+
+# Install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir requests
+
+# Copy worker script
+COPY services/transcription_worker.py ./
+
+# Create upload directory
+RUN mkdir -p /data/uploads
+
+# Set environment variables
+ENV WHISPER_CLI=/opt/whisper.cpp/build/bin/whisper-cli
+ENV WHISPER_MODEL=/opt/whisper.cpp/models/ggml-medium.bin
+
+# Run worker
+CMD ["python", "transcription_worker.py"]

@@ -1,0 +1,120 @@
+# Store Feedback System - Docker Compose
+version: '3.8'
+
+services:
+  # MongoDB Database
+  mongodb:
+    image: mongo:7.0
+    container_name: feedback-mongodb
+    restart: unless-stopped
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      MONGO_INITDB_DATABASE: store_feedback
+    ports:
+      - "27017:27017"
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # FastAPI Backend
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: feedback-api
+    restart: unless-stopped
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    environment:
+      - MONGO_URI=mongodb://mongodb:27017
+      - DB_NAME=store_feedback
+      - UPLOAD_DIR=/data/uploads
+      - BASE_URL=https://store-feedback.tarsyer.com
+    volumes:
+      - uploads_data:/data/uploads
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Transcription Worker
+  transcription-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.worker
+    container_name: feedback-transcription
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      - API_BASE_URL=http://api:8000
+      - UPLOAD_DIR=/data/uploads
+      - WHISPER_CLI=/opt/whisper.cpp/build/bin/whisper-cli
+      - WHISPER_MODEL=/opt/whisper.cpp/models/ggml-medium.bin
+      - WHISPER_LANG=hi
+      - POLL_INTERVAL=10
+    volumes:
+      - uploads_data:/data/uploads
+      - whisper_models:/opt/whisper.cpp/models
+
+  # AI Analysis Worker
+  analysis-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.analysis
+    container_name: feedback-analysis
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      - API_BASE_URL=http://api:8000
+      - QWEN_API_URL=https://kwen.tarsyer.com/v1/chat/completions
+      - QWEN_API_KEY=Tarsyer-key-1
+      - QWEN_TARGET_SERVER=BK
+      - POLL_INTERVAL=10
+      - MAX_TOKENS=1024
+
+  # Frontend (PWA)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: feedback-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
+
+  # Nginx Reverse Proxy (Production)
+  nginx:
+    image: nginx:alpine
+    container_name: feedback-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - uploads_data:/data/uploads:ro
+    depends_on:
+      - api
+      - frontend
+
+volumes:
+  mongodb_data:
+    driver: local
+  uploads_data:
+    driver: local
+  whisper_models:
+    driver: local
