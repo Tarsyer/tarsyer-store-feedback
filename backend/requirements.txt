@@ -15,6 +15,7 @@ passlib[bcrypt]==1.7.4
 
 # HTTP Client (for Qwen API)
 httpx==0.26.0
+requests==2.31.0
 
 # Settings Management
 pydantic-settings==2.1.0
