@@ -161,6 +161,9 @@ mkdir -p ../uploads
 
 # Create .env file
 cat > ../.env << 'EOF'
+# API Configuration
+API_BASE_URL=http://localhost:8000
+
 # MongoDB
 MONGO_URI=mongodb://localhost:27017
 DB_NAME=store_feedback
@@ -261,6 +264,7 @@ curl "https://store-feedback.tarsyer.com/api/v1/feedbacks?store_code=W001&limit=
 
 | Variable | Description | Default |
 |----------|-------------|---------|
+| `API_BASE_URL` | Backend API URL for workers | `http://localhost:8000` |
 | `MONGO_URI` | MongoDB connection string | `mongodb://localhost:27017` |
 | `DB_NAME` | Database name | `store_feedback` |
 | `UPLOAD_DIR` | Media file storage path | `./uploads` (dev), `/data/uploads` (prod) |
