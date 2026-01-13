@@ -1,60 +1,51 @@
 // PM2 Ecosystem Configuration
 // Run with: pm2 start ecosystem.config.js
+// Note: This loads environment variables from .env file
 
 module.exports = {
   apps: [
     {
       name: 'feedback-api',
-      script: 'uvicorn',
-      args: 'app.main:app --host 0.0.0.0 --port 8000',
-      cwd: './backend',
+      script: 'backend/venv/bin/uvicorn',
+      args: 'backend.app.main:app --host 0.0.0.0 --port 20525',
       interpreter: 'none',
-      env: {
-        MONGO_URI: 'mongodb://localhost:27017',
-        DB_NAME: 'store_feedback',
-        UPLOAD_DIR: '/data/uploads',
-        BASE_URL: 'https://store-feedback.tarsyer.com'
-      },
+      cwd: './',
       instances: 1,
       autorestart: true,
       watch: false,
-      max_memory_restart: '500M'
+      max_memory_restart: '500M',
+      env_file: '.env',
+      error_file: './logs/api-error.log',
+      out_file: './logs/api-out.log',
+      log_date_format: 'YYYY-MM-DD HH:mm:ss Z'
     },
     {
       name: 'transcription-worker',
-      script: 'services/transcription_worker.py',
-      cwd: './backend',
-      interpreter: 'python3',
-      env: {
-        API_BASE_URL: 'http://localhost:8000',
-        UPLOAD_DIR: '/data/uploads',
-        WHISPER_CLI: '/opt/whisper.cpp/build/bin/whisper-cli',
-        WHISPER_MODEL: '/opt/whisper.cpp/models/ggml-medium.bin',
-        WHISPER_LANG: 'hi',
-        POLL_INTERVAL: '10'
-      },
+      script: 'backend/services/transcription_worker.py',
+      interpreter: 'backend/venv/bin/python',
+      cwd: './',
       instances: 1,
       autorestart: true,
       watch: false,
-      max_memory_restart: '2G'
+      max_memory_restart: '2G',
+      env_file: '.env',
+      error_file: './logs/transcription-error.log',
+      out_file: './logs/transcription-out.log',
+      log_date_format: 'YYYY-MM-DD HH:mm:ss Z'
     },
     {
       name: 'analysis-worker',
-      script: 'services/analysis_worker.py',
-      cwd: './backend',
-      interpreter: 'python3',
-      env: {
-        API_BASE_URL: 'http://localhost:8000',
-        QWEN_API_URL: 'https://kwen.tarsyer.com/v1/chat/completions',
-        QWEN_API_KEY: 'Tarsyer-key-1',
-        QWEN_TARGET_SERVER: 'BK',
-        POLL_INTERVAL: '10',
-        MAX_TOKENS: '1024'
-      },
+      script: 'backend/services/analysis_worker.py',
+      interpreter: 'backend/venv/bin/python',
+      cwd: './',
       instances: 1,
       autorestart: true,
       watch: false,
-      max_memory_restart: '500M'
+      max_memory_restart: '500M',
+      env_file: '.env',
+      error_file: './logs/analysis-error.log',
+      out_file: './logs/analysis-out.log',
+      log_date_format: 'YYYY-MM-DD HH:mm:ss Z'
     }
   ]
 };

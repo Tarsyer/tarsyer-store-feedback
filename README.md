@@ -303,27 +303,157 @@ curl "https://store-feedback.tarsyer.com/api/v1/feedbacks?store_code=W001&limit=
 }
 ```
 
-## Deployment to GCP
+## Production Deployment
 
-### 1. Create GCP Resources
+### Quick Deploy (Automated)
+
+1. **Clone repository on server:**
 ```bash
-# Create storage bucket
-gsutil mb gs://tarsyer-store-feedback
-
-# Create VM instance
-gcloud compute instances create store-feedback-server \
-  --machine-type=e2-medium \
-  --zone=asia-south1-a \
-  --image-family=ubuntu-2204-lts
+cd ~
+git clone https://github.com/Tarsyer/tarsyer-store-feedback.git
+cd tarsyer-store-feedback
 ```
 
-### 2. Setup SSL (Let's Encrypt)
+2. **Create .env file:**
 ```bash
-certbot certonly --nginx -d store-feedback.tarsyer.com
+cp .env.example .env
+# Edit .env with your production values
+nano .env
 ```
 
-### 3. Configure DNS
-Point `store-feedback.tarsyer.com` to your server IP.
+3. **Install PM2 globally:**
+```bash
+npm install -g pm2
+```
+
+4. **Run deployment script:**
+```bash
+chmod +x deploy.sh
+./deploy.sh
+```
+
+5. **Configure Nginx:**
+```bash
+# Copy nginx config
+sudo cp nginx/store-feedback-production.conf /etc/nginx/sites-available/store-feedback.conf
+sudo ln -s /etc/nginx/sites-available/store-feedback.conf /etc/nginx/sites-enabled/
+
+# Get SSL certificate
+sudo mkdir -p /var/www/html
+sudo certbot certonly --webroot -w /var/www/html -d store-feedback.tarsyer.com
+
+# Test and reload nginx
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+6. **Verify services:**
+```bash
+pm2 status
+pm2 logs
+```
+
+### Manual Deployment Steps
+
+#### 1. Server Prerequisites
+```bash
+# Update system
+sudo apt update && sudo apt upgrade -y
+
+# Install dependencies
+sudo apt install -y python3 python3-pip python3-venv nodejs npm nginx certbot python3-certbot-nginx mongodb-org
+
+# Install PM2
+sudo npm install -g pm2
+```
+
+#### 2. Setup Application
+```bash
+cd ~/tarsyer-store-feedback
+
+# Install backend dependencies
+cd backend
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+cd ..
+
+# Build frontend
+cd frontend
+npm install
+VITE_API_URL=https://store-feedback.tarsyer.com npm run build
+cd ..
+```
+
+#### 3. Configure Environment
+Create `.env` file in project root with production values.
+
+#### 4. Start Services with PM2
+```bash
+# Start all services
+pm2 start ecosystem.config.js
+
+# Save PM2 process list
+pm2 save
+
+# Setup PM2 to start on boot
+pm2 startup systemd
+# Run the command that PM2 outputs
+```
+
+#### 5. Configure Nginx
+```bash
+# Copy nginx configuration
+sudo cp nginx/store-feedback-production.conf /etc/nginx/sites-available/store-feedback.conf
+sudo ln -s /etc/nginx/sites-available/store-feedback.conf /etc/nginx/sites-enabled/
+
+# Get SSL certificate
+sudo certbot certonly --webroot -w /var/www/html -d store-feedback.tarsyer.com
+
+# Test and reload
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+### Service Management
+
+**View all services:**
+```bash
+pm2 status
+```
+
+**View logs:**
+```bash
+pm2 logs                    # All services
+pm2 logs feedback-api       # Just API
+pm2 logs transcription-worker
+pm2 logs analysis-worker
+```
+
+**Restart services:**
+```bash
+pm2 restart all
+pm2 restart feedback-api
+```
+
+**Stop services:**
+```bash
+pm2 stop all
+pm2 delete all
+```
+
+**Monitor services:**
+```bash
+pm2 monit
+```
+
+### Updating the Application
+
+```bash
+cd ~/tarsyer-store-feedback
+git pull
+./deploy.sh
+```
 
 ## Future Enhancements
 
