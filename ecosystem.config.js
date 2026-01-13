@@ -1,14 +1,19 @@
 // PM2 Ecosystem Configuration
 // Run with: pm2 start ecosystem.config.js
 // Note: Environment variables are loaded from .env by python-dotenv in the scripts
+// Using uv-created virtualenv at ~/new
 
 const path = require('path');
+const os = require('os');
+
+const homeDir = os.homedir();
+const venvPath = path.join(homeDir, 'new');
 
 module.exports = {
   apps: [
     {
       name: 'feedback-api',
-      script: path.join(__dirname, 'backend/venv/bin/uvicorn'),
+      script: path.join(venvPath, 'bin/uvicorn'),
       args: 'backend.app.main:app --host 0.0.0.0 --port 20525',
       interpreter: 'none',
       cwd: __dirname,
@@ -26,7 +31,7 @@ module.exports = {
     {
       name: 'transcription-worker',
       script: path.join(__dirname, 'backend/services/transcription_worker.py'),
-      interpreter: path.join(__dirname, 'backend/venv/bin/python'),
+      interpreter: path.join(venvPath, 'bin/python'),
       cwd: __dirname,
       instances: 1,
       autorestart: true,
@@ -42,7 +47,7 @@ module.exports = {
     {
       name: 'analysis-worker',
       script: path.join(__dirname, 'backend/services/analysis_worker.py'),
-      interpreter: path.join(__dirname, 'backend/venv/bin/python'),
+      interpreter: path.join(venvPath, 'bin/python'),
       cwd: __dirname,
       instances: 1,
       autorestart: true,

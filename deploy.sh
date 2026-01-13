@@ -18,12 +18,10 @@ cd "$SCRIPT_DIR"
 echo -e "${BLUE}📦 Installing dependencies...${NC}"
 
 # Backend dependencies
+# Note: Using existing virtualenv at ~/new created with uv
+echo "Installing backend dependencies in ~/new virtualenv..."
+source ~/new/bin/activate
 cd backend
-if [ ! -d "venv" ]; then
-    echo "Creating Python virtual environment..."
-    python3 -m venv venv
-fi
-source venv/bin/activate
 pip install -r requirements.txt
 cd ..
 
