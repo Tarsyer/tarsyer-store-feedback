@@ -51,7 +51,7 @@ app = FastAPI(
 if not settings.DEBUG:
     app.add_middleware(
         TrustedHostMiddleware,
-        allowed_hosts=["store-feedback.tarsyer.com", "*.tarsyer.com"]
+        allowed_hosts=["store-feedback.tarsyer.com", "*.tarsyer.com", "127.0.0.1", "localhost"]
     )
 
 # 2. CORS Middleware - Restrict cross-origin requests
