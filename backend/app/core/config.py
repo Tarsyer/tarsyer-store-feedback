@@ -6,6 +6,16 @@ from functools import lru_cache
 from pathlib import Path
 import os
 
+# Find .env file in current dir, parent dir, or two levels up
+def find_env_file():
+    """Find .env file in project directory"""
+    current = Path.cwd()
+    for parent_level in [current, current.parent, current.parent.parent]:
+        env_path = parent_level / ".env"
+        if env_path.exists():
+            return str(env_path)
+    return ".env"  # Default to current directory
+
 
 class Settings(BaseSettings):
     """Application settings loaded from environment variables"""
@@ -29,7 +39,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24 hours
     
     # File Storage
-    UPLOAD_DIR: str = "/var/data/store-feedback/uploads"
+    UPLOAD_DIR: str = "./uploads"  # Default to local uploads directory
     MAX_FILE_SIZE_MB: int = 50
     ALLOWED_EXTENSIONS: set = {".mp3", ".mp4", ".m4a", ".wav", ".webm", ".ogg", ".flac", ".aac", ".mpeg", ".mpga"}
     
@@ -52,8 +62,10 @@ class Settings(BaseSettings):
     CORS_ORIGINS: list = ["http://localhost:3000", "http://localhost:5173", "https://store-feedback.tarsyer.com"]
     
     class Config:
-        env_file = ".env"
+        env_file = find_env_file()
+        env_file_encoding = 'utf-8'
         case_sensitive = True
+        extra = 'ignore'  # Ignore extra fields in .env
 
 
 @lru_cache()
