@@ -45,7 +45,7 @@ class Database:
     @classmethod
     async def _create_indexes(cls):
         """Create necessary indexes for performance"""
-        if not cls.db:
+        if cls.db is None:
             return
         
         # Feedbacks collection indexes
@@ -69,7 +69,7 @@ class Database:
     @classmethod
     def get_db(cls) -> AsyncIOMotorDatabase:
         """Get database instance"""
-        if not cls.db:
+        if cls.db is None:
             raise RuntimeError("Database not connected. Call Database.connect() first.")
         return cls.db
 
