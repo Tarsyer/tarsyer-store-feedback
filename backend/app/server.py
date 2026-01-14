@@ -14,7 +14,7 @@ from starlette.middleware.sessions import SessionMiddleware
 import secrets
 
 from app.core.config import get_settings, init_directories
-from app.services.database import connect_db, close_db, get_database
+from app.services.database import Database, get_database
 from app.api import auth, feedback, dashboard, stores
 
 settings = get_settings()
@@ -24,13 +24,13 @@ settings = get_settings()
 async def lifespan(app: FastAPI):
     """Manage application lifecycle - DB connections and initialization"""
     # Startup
-    await connect_db()
+    await Database.connect()
     init_directories()
     print(f"✓ {settings.APP_NAME} started successfully")
     print(f"✓ API available at: {settings.API_V1_PREFIX}")
     yield
     # Shutdown
-    await close_db()
+    await Database.disconnect()
     print("✓ Application shutdown complete")
 
 
