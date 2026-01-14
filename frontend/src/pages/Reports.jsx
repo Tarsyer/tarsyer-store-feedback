@@ -1,8 +1,27 @@
 import React, { useState, useEffect } from 'react';
-import Auth from '../components/Auth';
+import AuthJWT from '../components/AuthJWT';
 import './Reports.css';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'https://store-feedback.tarsyer.com';
+
+// Helper function to get auth token
+const getAuthToken = () => localStorage.getItem('auth_token');
+
+// Helper function to check if token is expired
+const isTokenExpired = () => {
+  const expiry = localStorage.getItem('token_expiry');
+  if (!expiry) return true;
+  return Date.now() >= parseInt(expiry) * 1000;
+};
+
+// Helper function to logout
+const logout = () => {
+  localStorage.removeItem('auth_token');
+  localStorage.removeItem('user_role');
+  localStorage.removeItem('username');
+  localStorage.removeItem('user_name');
+  localStorage.removeItem('token_expiry');
+};
 
 // Simple bar chart component
 const BarChart = ({ data, labelKey, valueKey, maxBars = 10, color = '#EF4444' }) => {
@@ -110,11 +129,15 @@ function Reports() {
   const [days, setDays] = useState(15);
   const [detailView, setDetailView] = useState(null);
 
-  // Check stored authentication
+  // Check stored authentication and token validity
   useEffect(() => {
-    const managerAuth = localStorage.getItem('manager_auth');
-    if (managerAuth === 'true') {
+    const token = getAuthToken();
+    if (token && !isTokenExpired()) {
       setIsAuthenticated(true);
+    } else if (token && isTokenExpired()) {
+      // Token expired, clear auth
+      logout();
+      setIsAuthenticated(false);
     }
   }, []);
 
@@ -126,18 +149,43 @@ function Reports() {
 
   const fetchData = async () => {
     setLoading(true);
+    const token = getAuthToken();
+
+    // Check token validity before making requests
+    if (!token || isTokenExpired()) {
+      logout();
+      setIsAuthenticated(false);
+      setLoading(false);
+      return;
+    }
+
+    const headers = {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    };
+
     try {
       // Fetch dashboard stats
       const statsUrl = new URL(`${API_BASE}/api/v1/dashboard/stats`);
       statsUrl.searchParams.set('days', days);
       if (selectedStore) statsUrl.searchParams.set('store_code', selectedStore);
 
-      const statsRes = await fetch(statsUrl);
+      const statsRes = await fetch(statsUrl, { headers });
+      if (statsRes.status === 401) {
+        logout();
+        setIsAuthenticated(false);
+        return;
+      }
       const statsData = await statsRes.json();
       setStats(statsData);
 
       // Fetch stores list
-      const storesRes = await fetch(`${API_BASE}/api/v1/stores`);
+      const storesRes = await fetch(`${API_BASE}/api/v1/stores`, { headers });
+      if (storesRes.status === 401) {
+        logout();
+        setIsAuthenticated(false);
+        return;
+      }
       const storesData = await storesRes.json();
       setStores(storesData);
 
@@ -147,11 +195,21 @@ function Reports() {
       feedbacksUrl.searchParams.set('status', 'completed');
       if (selectedStore) feedbacksUrl.searchParams.set('store_code', selectedStore);
 
-      const feedbacksRes = await fetch(feedbacksUrl);
+      const feedbacksRes = await fetch(feedbacksUrl, { headers });
+      if (feedbacksRes.status === 401) {
+        logout();
+        setIsAuthenticated(false);
+        return;
+      }
       const feedbacksData = await feedbacksRes.json();
       setFeedbacks(feedbacksData);
     } catch (err) {
       console.error('Failed to fetch data:', err);
+      // If error is related to auth, logout
+      if (err.message?.includes('401') || err.message?.includes('Unauthorized')) {
+        logout();
+        setIsAuthenticated(false);
+      }
     } finally {
       setLoading(false);
     }
@@ -182,9 +240,15 @@ function Reports() {
     a.click();
   };
 
+  // Logout handler
+  const handleLogout = () => {
+    logout();
+    setIsAuthenticated(false);
+  };
+
   // Authentication Screen
   if (!isAuthenticated) {
-    return <Auth onLogin={setIsAuthenticated} userType="manager" />;
+    return <AuthJWT onLogin={setIsAuthenticated} userType="manager" />;
   }
 
   if (loading && !stats) {
@@ -229,6 +293,9 @@ function Reports() {
           </select>
           <button onClick={handleExport} className="export-btn">
             📥 Export CSV
+          </button>
+          <button onClick={handleLogout} className="logout-btn">
+            🚪 Logout
           </button>
         </div>
       </header>
