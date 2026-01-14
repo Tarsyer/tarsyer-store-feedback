@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Store Feedback API - Main Application
+Store Feedback API - Main Application with JWT Authentication
 Handles audio/video uploads, transcription, AI analysis, and dashboard data
 """
 import os
@@ -11,13 +11,16 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends, Query
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends, Query, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from pydantic import BaseModel, Field
 from motor.motor_asyncio import AsyncIOMotorClient
 from bson import ObjectId
+from jose import JWTError, jwt
+from passlib.context import CryptContext
 
 # Load environment variables from .env file
 load_dotenv()
@@ -28,11 +31,20 @@ DB_NAME = os.getenv("DB_NAME", "store_feedback")
 UPLOAD_DIR = os.getenv("UPLOAD_DIR", "/data/uploads")
 BASE_URL = os.getenv("BASE_URL", "https://store-feedback.tarsyer.com")
 
+# JWT Configuration
+JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "your-secret-key-change-in-production")
+JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "480"))
+
 # Ensure upload directory exists
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 # MongoDB client
 db_client: Optional[AsyncIOMotorClient] = None
+
+# Auth setup
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
 
 @asynccontextmanager
@@ -45,6 +57,7 @@ async def lifespan(app: FastAPI):
     await db.feedbacks.create_index([("store_code", 1), ("recorded_date", -1)])
     await db.feedbacks.create_index([("created_at", -1)])
     await db.feedbacks.create_index([("status", 1)])
+    await db.users.create_index([("username", 1)], unique=True)
     print("✓ Connected to MongoDB")
     yield
     db_client.close()
@@ -123,6 +136,107 @@ class DashboardStats(BaseModel):
     top_actions: List[dict]
 
 
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+# ============ Auth Helper Functions ============
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """Verify a password against its hash"""
+    return pwd_context.verify(plain_password, hashed_password)
+
+
+def get_password_hash(password: str) -> str:
+    """Hash a password"""
+    return pwd_context.hash(password)
+
+
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+    """Create a JWT access token"""
+    to_encode = data.copy()
+
+    if expires_delta:
+        expire = datetime.utcnow() + expires_delta
+    else:
+        expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
+    return encoded_jwt
+
+
+async def get_user_by_username(db, username: str) -> Optional[dict]:
+    """Get user from database by username"""
+    return await db.users.find_one({"username": username})
+
+
+async def authenticate_user(db, username: str, password: str) -> Optional[dict]:
+    """Authenticate user with username and password"""
+    user = await get_user_by_username(db, username)
+    if not user:
+        return None
+    if not verify_password(password, user.get("password_hash", "")):
+        return None
+    return user
+
+
+async def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
+    """Get current user from JWT token"""
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+    db = get_db()
+
+    try:
+        payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
+
+    user = await get_user_by_username(db, username)
+    if user is None:
+        raise credentials_exception
+
+    return user
+
+
+async def get_current_active_user(current_user: dict = Depends(get_current_user)) -> dict:
+    """Ensure user is active"""
+    if current_user.get("disabled", False):
+        raise HTTPException(status_code=400, detail="Inactive user")
+    return current_user
+
+
+def require_role(required_roles: list):
+    """Dependency to require specific roles"""
+    async def role_checker(current_user: dict = Depends(get_current_active_user)):
+        user_role = current_user.get("role", "staff")
+        if user_role not in required_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Role '{user_role}' not authorized"
+            )
+        return current_user
+    return role_checker
+
+
+# Role-based dependencies
+require_manager = require_role(["manager", "admin"])
+require_admin = require_role(["admin"])
+
+
 # ============ Helper Functions ============
 
 def get_db():
@@ -156,6 +270,74 @@ async def health_check():
     return {"status": "healthy", "timestamp": datetime.utcnow().isoformat()}
 
 
+# ============ Authentication Endpoints ============
+
+@app.post("/api/v1/auth/login", response_model=Token)
+async def login(form_data: OAuth2PasswordRequestForm = Depends()):
+    """Login with username and password (form data)"""
+    db = get_db()
+    user = await authenticate_user(db, form_data.username, form_data.password)
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={
+            "sub": user["username"],
+            "role": user.get("role", "staff"),
+            "name": user.get("name", ""),
+            "store_ids": user.get("store_ids", [])
+        },
+        expires_delta=access_token_expires
+    )
+
+    return {"access_token": access_token, "token_type": "bearer"}
+
+
+@app.post("/api/v1/auth/login/json", response_model=Token)
+async def login_json(login_data: LoginRequest):
+    """Login with JSON body (for web/mobile apps)"""
+    db = get_db()
+    user = await authenticate_user(db, login_data.username, login_data.password)
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+        )
+
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={
+            "sub": user["username"],
+            "role": user.get("role", "staff"),
+            "name": user.get("name", ""),
+            "store_ids": user.get("store_ids", [])
+        },
+        expires_delta=access_token_expires
+    )
+
+    return {"access_token": access_token, "token_type": "bearer"}
+
+
+@app.get("/api/v1/auth/me")
+async def get_current_user_info(current_user: dict = Depends(get_current_active_user)):
+    """Get current user information"""
+    return {
+        "username": current_user["username"],
+        "name": current_user.get("name", ""),
+        "role": current_user.get("role", "staff"),
+        "store_ids": current_user.get("store_ids", [])
+    }
+
+
+# ============ Feedback Endpoints ============
+
 @app.post("/api/v1/feedback", response_model=FeedbackResponse)
 async def upload_feedback(
     store_code: str = Form(..., pattern=r'^W\d{3}$'),
@@ -168,25 +350,25 @@ async def upload_feedback(
     Accepts audio/video files and queues for transcription.
     """
     db = get_db()
-    
+
     # Validate file type
     allowed_types = {
         'audio/mpeg', 'audio/mp3', 'audio/mp4', 'audio/wav', 'audio/webm',
         'audio/ogg', 'audio/flac', 'audio/aac', 'audio/m4a',
         'video/mp4', 'video/webm', 'video/quicktime'
     }
-    
+
     content_type = media.content_type or ""
     if not any(t in content_type for t in ['audio', 'video']):
         raise HTTPException(400, "Invalid file type. Only audio/video files allowed.")
-    
+
     # Generate unique filename
     ext = os.path.splitext(media.filename)[1] or '.mp3'
     unique_id = uuid.uuid4().hex[:12]
     timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
     filename = f"{store_code}_{timestamp}_{unique_id}{ext}"
     filepath = os.path.join(UPLOAD_DIR, filename)
-    
+
     # Save file
     try:
         content = await media.read()
@@ -194,7 +376,7 @@ async def upload_feedback(
             f.write(content)
     except Exception as e:
         raise HTTPException(500, f"Failed to save file: {str(e)}")
-    
+
     # Create feedback document
     now = datetime.utcnow()
     feedback_doc = {
@@ -213,10 +395,10 @@ async def upload_feedback(
         "created_at": now,
         "updated_at": now,
     }
-    
+
     result = await db.feedbacks.insert_one(feedback_doc)
     feedback_doc["_id"] = result.inserted_id
-    
+
     return serialize_feedback(feedback_doc)
 
 
@@ -224,15 +406,15 @@ async def upload_feedback(
 async def get_feedback(feedback_id: str):
     """Get a specific feedback by ID"""
     db = get_db()
-    
+
     try:
         doc = await db.feedbacks.find_one({"_id": ObjectId(feedback_id)})
     except:
         raise HTTPException(400, "Invalid feedback ID")
-    
+
     if not doc:
         raise HTTPException(404, "Feedback not found")
-    
+
     return serialize_feedback(doc)
 
 
@@ -247,7 +429,7 @@ async def list_feedbacks(
 ):
     """List feedbacks with optional filters"""
     db = get_db()
-    
+
     query = {}
     if store_code:
         query["store_code"] = store_code.upper()
@@ -261,28 +443,29 @@ async def list_feedbacks(
             date_query["$lte"] = end_date
         if date_query:
             query["recorded_date"] = date_query
-    
+
     cursor = db.feedbacks.find(query).sort("created_at", -1).skip(skip).limit(limit)
     docs = await cursor.to_list(length=limit)
-    
+
     return [serialize_feedback(doc) for doc in docs]
 
 
 @app.get("/api/v1/dashboard/stats", response_model=DashboardStats)
 async def get_dashboard_stats(
     days: int = Query(15, le=90),
-    store_code: Optional[str] = Query(None)
+    store_code: Optional[str] = Query(None),
+    current_user: dict = Depends(require_manager)
 ):
     """
     Get dashboard statistics for the last N days.
-    Includes daily counts, tone distribution, top products/issues/actions.
+    Requires manager or admin role.
     """
     db = get_db()
-    
+
     # Date range
     end_date = datetime.utcnow().date()
     start_date = end_date - timedelta(days=days)
-    
+
     # Base match
     match_stage = {
         "recorded_date": {
@@ -292,10 +475,10 @@ async def get_dashboard_stats(
     }
     if store_code:
         match_stage["store_code"] = store_code.upper()
-    
+
     # Total count
     total = await db.feedbacks.count_documents(match_stage)
-    
+
     # Feedbacks by day
     by_day_pipeline = [
         {"$match": match_stage},
@@ -306,7 +489,7 @@ async def get_dashboard_stats(
         {"$sort": {"_id": 1}}
     ]
     by_day = await db.feedbacks.aggregate(by_day_pipeline).to_list(length=days+1)
-    
+
     # Feedbacks by store
     by_store_pipeline = [
         {"$match": match_stage},
@@ -318,7 +501,7 @@ async def get_dashboard_stats(
         {"$limit": 20}
     ]
     by_store = await db.feedbacks.aggregate(by_store_pipeline).to_list(length=20)
-    
+
     # Tone distribution (only completed feedbacks)
     tone_match = {**match_stage, "status": "completed", "analysis.tone": {"$exists": True}}
     tone_pipeline = [
@@ -330,7 +513,7 @@ async def get_dashboard_stats(
     ]
     tone_results = await db.feedbacks.aggregate(tone_pipeline).to_list(length=10)
     tone_dist = {item["_id"]: item["count"] for item in tone_results}
-    
+
     # Top products
     products_pipeline = [
         {"$match": {**match_stage, "status": "completed"}},
@@ -343,7 +526,7 @@ async def get_dashboard_stats(
         {"$limit": 5}
     ]
     top_products = await db.feedbacks.aggregate(products_pipeline).to_list(length=5)
-    
+
     # Top issues
     issues_pipeline = [
         {"$match": {**match_stage, "status": "completed"}},
@@ -356,7 +539,7 @@ async def get_dashboard_stats(
         {"$limit": 5}
     ]
     top_issues = await db.feedbacks.aggregate(issues_pipeline).to_list(length=5)
-    
+
     # Top actions
     actions_pipeline = [
         {"$match": {**match_stage, "status": "completed"}},
@@ -369,7 +552,7 @@ async def get_dashboard_stats(
         {"$limit": 5}
     ]
     top_actions = await db.feedbacks.aggregate(actions_pipeline).to_list(length=5)
-    
+
     return DashboardStats(
         total_feedbacks=total,
         feedbacks_by_day=[{"date": d["_id"], "count": d["count"]} for d in by_day],
@@ -382,10 +565,10 @@ async def get_dashboard_stats(
 
 
 @app.get("/api/v1/stores")
-async def list_stores():
-    """Get list of all stores that have submitted feedback"""
+async def list_stores(current_user: dict = Depends(require_manager)):
+    """Get list of all stores (requires manager role)"""
     db = get_db()
-    
+
     pipeline = [
         {"$group": {
             "_id": "$store_code",
@@ -394,9 +577,9 @@ async def list_stores():
         }},
         {"$sort": {"_id": 1}}
     ]
-    
+
     stores = await db.feedbacks.aggregate(pipeline).to_list(length=500)
-    
+
     return [
         {
             "store_code": s["_id"],
@@ -413,10 +596,10 @@ async def list_stores():
 async def get_pending_feedbacks(limit: int = 10):
     """Get feedbacks pending transcription (for worker)"""
     db = get_db()
-    
+
     cursor = db.feedbacks.find({"status": "pending"}).limit(limit)
     docs = await cursor.to_list(length=limit)
-    
+
     return [serialize_feedback(doc) for doc in docs]
 
 
@@ -424,7 +607,7 @@ async def get_pending_feedbacks(limit: int = 10):
 async def update_transcription(feedback_id: str, transcription: str = Form(...)):
     """Update feedback with transcription result"""
     db = get_db()
-    
+
     result = await db.feedbacks.update_one(
         {"_id": ObjectId(feedback_id)},
         {
@@ -435,10 +618,10 @@ async def update_transcription(feedback_id: str, transcription: str = Form(...))
             }
         }
     )
-    
+
     if result.matched_count == 0:
         raise HTTPException(404, "Feedback not found")
-    
+
     return {"status": "updated"}
 
 
@@ -446,7 +629,7 @@ async def update_transcription(feedback_id: str, transcription: str = Form(...))
 async def update_analysis(feedback_id: str, analysis: AnalysisResult):
     """Update feedback with AI analysis result"""
     db = get_db()
-    
+
     result = await db.feedbacks.update_one(
         {"_id": ObjectId(feedback_id)},
         {
@@ -457,10 +640,10 @@ async def update_analysis(feedback_id: str, analysis: AnalysisResult):
             }
         }
     )
-    
+
     if result.matched_count == 0:
         raise HTTPException(404, "Feedback not found")
-    
+
     return {"status": "updated"}
 
 
@@ -468,7 +651,7 @@ async def update_analysis(feedback_id: str, analysis: AnalysisResult):
 async def mark_error(feedback_id: str, error_message: str = Form(...)):
     """Mark feedback as errored"""
     db = get_db()
-    
+
     result = await db.feedbacks.update_one(
         {"_id": ObjectId(feedback_id)},
         {
@@ -479,10 +662,10 @@ async def mark_error(feedback_id: str, error_message: str = Form(...)):
             }
         }
     )
-    
+
     if result.matched_count == 0:
         raise HTTPException(404, "Feedback not found")
-    
+
     return {"status": "updated"}
 
 
